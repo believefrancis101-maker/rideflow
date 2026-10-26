@@ -1,0 +1,1268 @@
+openapi: 3.1.0
+info:
+  title: RideFlow API
+  version: 1.0.0
+  description: |
+    RideFlow is a ride-hailing marketplace API supporting the complete lifecycle of point-to-point trips.
+    Designed and modeled in accordance with the Task 3 Requirements Baseline and PostgreSQL Data Model.
+  contact:
+    name: RideFlow Engineering Team
+    email: api-support@rideflow.example.com
+
+servers:
+  - url: https://api.rideflow.example.com/v1
+    description: Production API Server (v1)
+  - url: https://staging-api.rideflow.example.com/v1
+    description: Staging Environment Server (v1)
+
+paths:
+  /trips:
+    post:
+      summary: Request a trip (R1)
+      operationId: requestTrip
+      description: |
+        Creates a new trip request for the authenticated passenger with a server-calculated agreed fare snapshot.
+        Enforces that the passenger has no existing active trip (BR3).
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCreateRequest'
+            examples:
+              standard_request:
+                summary: Standard ride request
+                value:
+                  pickup_latitude: 6.524379
+                  pickup_longitude: 3.379206
+                  dropoff_latitude: 6.601838
+                  dropoff_longitude: 3.351486
+                  pickup_address: Commercial Avenue, Yaba, Lagos
+                  dropoff_address: Ikeja City Mall, Alausa, Ikeja
+                  payment_method: cash
+      responses:
+        '201':
+          description: Trip successfully requested and created in requested status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripSingleResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Active trip conflict (BR3) or Idempotency fingerprint mismatch.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/queue:
+    get:
+      summary: List available unassigned trip requests (R2 Queue)
+      operationId: listAvailableTrips
+      description: |
+        Returns a FIFO list of unassigned trips in requested status for drivers to inspect and accept.
+        Backed by partial index trips(created_at ASC) WHERE status = 'requested'.
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: Maximum number of available requests to return.
+      responses:
+        '200':
+          description: List of available requested trips.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /trips/{id}:
+    get:
+      summary: Retrieve trip details and progress (R3)
+      operationId: getTripById
+      description: |
+        Retrieves the complete trip aggregate including route, fare snapshot, participant summaries,
+        latest location telemetry sample, payment status, and review state.
+        Object-level authorization enforced (must be passenger, assigned driver, or admin).
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+      responses:
+        '200':
+          description: Full trip aggregate details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /trips/{id}/accept:
+    post:
+      summary: Accept a trip (R2)
+      operationId: acceptTrip
+      description: |
+        Eligible driver accepts a requested trip with their approved vehicle.
+        Atomically transitions status from requested to accepted and sets accepted_at.
+        Enforces BR4 (driver single active trip), BR5 (vehicle single active trip), and BR6 (vehicle ownership).
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripAcceptRequest'
+            examples:
+              driver_accept:
+                summary: Driver accepts trip with approved vehicle
+                value:
+                  vehicle_id: 018d3f62-3333-7b3e-8c42-5f69a1e09333
+      responses:
+        '200':
+          description: Trip successfully accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripSingleResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Trip was already accepted by another driver (race lost) or driver/vehicle active trip conflict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Driver or vehicle is not approved or vehicle is not owned by caller.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{id}/arrive:
+    post:
+      summary: Driver marks arrival at pickup location
+      operationId: markDriverArrival
+      description: |
+        Assigned driver transitions trip from accepted to driver_arriving. Sets driver_arriving_at = now().
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: Arrival recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripSingleResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /trips/{id}/start:
+    post:
+      summary: Driver starts the trip
+      operationId: startTrip
+      description: |
+        Assigned driver transitions trip from driver_arriving to in_progress. Sets started_at = now().
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: Trip started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripSingleResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /trips/{id}/complete:
+    post:
+      summary: Driver completes trip and records payment outcome (R4)
+      operationId: completeTrip
+      description: |
+        Assigned driver transitions trip from in_progress to terminal completed status.
+        Atomically records initial payment attempt preserving agreed fare, currency, and payment method (BR15).
+        Enforces at-most-one successful collection (BR9).
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCompleteRequest'
+            examples:
+              cash_completion:
+                summary: Cash collected confirmation
+                value:
+                  cash_collected: true
+      responses:
+        '200':
+          description: Trip completed and payment outcome recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripCompleteResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Invalid state transition or payment already succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{id}/cancel:
+    post:
+      summary: Cancel a trip before trip start
+      operationId: cancelTrip
+      description: |
+        Passenger or assigned driver cancels an active trip before it has started.
+        Permitted only from requested, accepted, or driver_arriving. Sets cancelled_at.
+      tags:
+        - Trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCancelRequest'
+      responses:
+        '200':
+          description: Trip successfully cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripSingleResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /trips/{id}/locations:
+    post:
+      summary: Append location telemetry sample (R3.4)
+      operationId: appendLocationSample
+      description: |
+        Assigned driver appends an immutable GPS coordinate sample for an active trip.
+      tags:
+        - Telemetry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationSampleCreateRequest'
+            examples:
+              driver_ping:
+                summary: Periodic GPS update
+                value:
+                  latitude: 6.551200
+                  longitude: 3.365400
+                  accuracy_meters: 5.50
+                  recorded_at: "2026-10-26T12:12:00.000Z"
+      responses:
+        '201':
+          description: Location sample recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationSampleResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Trip is not currently in an active status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{id}/reviews:
+    post:
+      summary: Passenger reviews their own completed trip (R5)
+      operationId: createTripReview
+      description: |
+        Submits an immutable passenger review for a completed trip.
+        Enforces that the caller is the trip's passenger (R5.1), trip is completed (R5.2),
+        and exactly one review exists per trip (BR10).
+      tags:
+        - Reviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+            examples:
+              review_example:
+                summary: 5-star rating with polite feedback
+                value:
+                  rating: 5
+                  comment: "Driver arrived quickly and was very polite. Smooth ride!"
+      responses:
+        '201':
+          description: Review recorded and permanently linked to trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewSingleResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Trip already has a review (BR10 duplicate review).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Trip is not yet completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{id}/payments/retry:
+    post:
+      summary: Retry failed electronic payment collection
+      operationId: retryPaymentAttempt
+      description: |
+        Creates a new payment attempt row for a completed trip whose previous electronic attempts failed.
+        Enforces at-most-one successful collection invariant (BR9).
+      tags:
+        - Payments
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: Payment retry attempt processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSingleResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Trip already has a successful payment collection (BR9).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /passengers/me/trips:
+    get:
+      summary: List passenger trip history
+      operationId: listPassengerTrips
+      description: |
+        Lists trips requested by the authenticated passenger with reverse-chronological pagination.
+        Backed by index trips(passenger_id, created_at DESC).
+      tags:
+        - Passengers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TripStatus'
+          description: Optional filter by trip lifecycle status.
+        - $ref: '#/components/parameters/PaginationLimitParam'
+        - $ref: '#/components/parameters/PaginationCursorParam'
+      responses:
+        '200':
+          description: Paginated list of passenger trips.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+
+  /drivers/me/trips:
+    get:
+      summary: List driver trip history
+      operationId: listDriverTrips
+      description: |
+        Lists trips assigned to the authenticated driver with reverse-chronological pagination.
+        Backed by index trips(driver_id, created_at DESC).
+      tags:
+        - Drivers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TripStatus'
+          description: Optional filter by trip lifecycle status.
+        - $ref: '#/components/parameters/PaginationLimitParam'
+        - $ref: '#/components/parameters/PaginationCursorParam'
+      responses:
+        '200':
+          description: Paginated list of driver trips.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /drivers/me/vehicles:
+    get:
+      summary: List driver approved vehicles
+      operationId: listDriverVehicles
+      description: |
+        Returns vehicles owned by the authenticated driver for vehicle selection at trip acceptance.
+        Backed by index vehicles(driver_id, status).
+      tags:
+        - Drivers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of vehicles owned by driver.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Bearer token containing user UUID identity (sub) and role (customer or admin).
+
+  parameters:
+    TripIdPathParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+      description: Unique identifier of the trip resource.
+
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+      description: Client-generated unique token ensuring safe idempotent replay of mutating operations.
+
+    PaginationLimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Number of records to return per page.
+
+    PaginationCursorParam:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Base64 opaque keyset cursor for forward pagination.
+
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      example: 018d3f62-7b1a-7b3e-8c42-5f69a1e09101
+
+    DateTimeUTC:
+      type: string
+      format: date-time
+      example: "2026-10-26T12:00:00.000Z"
+
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      example: NGN
+
+    PaymentMethod:
+      type: string
+      enum:
+        - cash
+        - electronic
+
+    TripStatus:
+      type: string
+      enum:
+        - requested
+        - accepted
+        - driver_arriving
+        - in_progress
+        - completed
+        - cancelled
+        - expired
+
+    PaymentStatus:
+      type: string
+      enum:
+        - pending
+        - succeeded
+        - failed
+
+    VehicleStatus:
+      type: string
+      enum:
+        - pending
+        - approved
+        - suspended
+
+    TripCreateRequest:
+      type: object
+      required:
+        - pickup_latitude
+        - pickup_longitude
+        - dropoff_latitude
+        - dropoff_longitude
+        - payment_method
+      properties:
+        pickup_latitude:
+          type: number
+          format: double
+          minimum: -90.0
+          maximum: 90.0
+          example: 6.524379
+        pickup_longitude:
+          type: number
+          format: double
+          minimum: -180.0
+          maximum: 180.0
+          example: 3.379206
+        dropoff_latitude:
+          type: number
+          format: double
+          minimum: -90.0
+          maximum: 90.0
+          example: 6.601838
+        dropoff_longitude:
+          type: number
+          format: double
+          minimum: -180.0
+          maximum: 180.0
+          example: 3.351486
+        pickup_address:
+          type: string
+          maxLength: 500
+          example: Commercial Avenue, Yaba, Lagos
+        dropoff_address:
+          type: string
+          maxLength: 500
+          example: Ikeja City Mall, Alausa, Ikeja
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethod'
+
+    TripAcceptRequest:
+      type: object
+      required:
+        - vehicle_id
+      properties:
+        vehicle_id:
+          $ref: '#/components/schemas/UUID'
+
+    TripCompleteRequest:
+      type: object
+      properties:
+        cash_collected:
+          type: boolean
+          description: Required when payment_method is cash to confirm driver collection.
+          example: true
+
+    TripCancelRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          example: Passenger requested cancellation before pickup
+
+    LocationSampleCreateRequest:
+      type: object
+      required:
+        - latitude
+        - longitude
+        - recorded_at
+      properties:
+        latitude:
+          type: number
+          minimum: -90.0
+          maximum: 90.0
+          example: 6.551200
+        longitude:
+          type: number
+          minimum: -180.0
+          maximum: 180.0
+          example: 3.365400
+        accuracy_meters:
+          type: number
+          minimum: 0.0
+          example: 5.50
+        recorded_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+
+    ReviewCreateRequest:
+      type: object
+      required:
+        - rating
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        comment:
+          type: string
+          maxLength: 2000
+          example: "Driver arrived quickly and was very polite. Smooth ride!"
+
+    TripEntity:
+      type: object
+      required:
+        - id
+        - passenger_id
+        - status
+        - pickup_latitude
+        - pickup_longitude
+        - dropoff_latitude
+        - dropoff_longitude
+        - fare_minor
+        - currency
+        - payment_method
+        - requested_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        passenger_id:
+          $ref: '#/components/schemas/UUID'
+        driver_id:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+        vehicle_id:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TripStatus'
+        pickup_latitude:
+          type: number
+          example: 6.524379
+        pickup_longitude:
+          type: number
+          example: 3.379206
+        dropoff_latitude:
+          type: number
+          example: 6.601838
+        dropoff_longitude:
+          type: number
+          example: 3.351486
+        pickup_address:
+          type: string
+          nullable: true
+          example: Commercial Avenue, Yaba, Lagos
+        dropoff_address:
+          type: string
+          nullable: true
+          example: Ikeja City Mall, Alausa, Ikeja
+        fare_minor:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Agreed fare in integer minor units (kobo).
+          example: 450000
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethod'
+        requested_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+        accepted_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        driver_arriving_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        started_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        completed_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        cancelled_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        cancellation_reason:
+          type: string
+          nullable: true
+          example: null
+        expired_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        created_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+        updated_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+
+    TripDetailAggregate:
+      allOf:
+        - $ref: '#/components/schemas/TripEntity'
+        - type: object
+          properties:
+            passenger:
+              type: object
+              properties:
+                id:
+                  $ref: '#/components/schemas/UUID'
+                full_name:
+                  type: string
+                  example: Ada Lovelace
+            driver:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  $ref: '#/components/schemas/UUID'
+                full_name:
+                  type: string
+                  example: Chidi Anagonye
+            vehicle:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  $ref: '#/components/schemas/UUID'
+                make:
+                  type: string
+                  example: Toyota
+                model:
+                  type: string
+                  example: Corolla
+                color:
+                  type: string
+                  example: Silver
+                license_plate:
+                  type: string
+                  example: LAG-123AA
+            latest_location:
+              type: object
+              nullable: true
+              properties:
+                latitude:
+                  type: number
+                  example: 6.551200
+                longitude:
+                  type: number
+                  example: 3.365400
+                recorded_at:
+                  $ref: '#/components/schemas/DateTimeUTC'
+            payment_summary:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/PaymentStatus'
+                attempt_count:
+                  type: integer
+                  example: 1
+                succeeded_at:
+                  $ref: '#/components/schemas/DateTimeUTC'
+                  nullable: true
+            review_summary:
+              type: object
+              properties:
+                reviewed:
+                  type: boolean
+                  example: false
+                review_id:
+                  $ref: '#/components/schemas/UUID'
+                  nullable: true
+
+    PaymentEntity:
+      type: object
+      required:
+        - id
+        - trip_id
+        - attempt_no
+        - method
+        - amount_minor
+        - currency
+        - status
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        trip_id:
+          $ref: '#/components/schemas/UUID'
+        attempt_no:
+          type: integer
+          minimum: 1
+          example: 1
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amount_minor:
+          type: integer
+          format: int64
+          example: 450000
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        provider_reference:
+          type: string
+          nullable: true
+          example: null
+        failure_code:
+          type: string
+          nullable: true
+          example: null
+        settled_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        created_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+
+    ReviewEntity:
+      type: object
+      required:
+        - id
+        - trip_id
+        - passenger_id
+        - driver_id
+        - rating
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        trip_id:
+          $ref: '#/components/schemas/UUID'
+        passenger_id:
+          $ref: '#/components/schemas/UUID'
+        driver_id:
+          $ref: '#/components/schemas/UUID'
+          description: Relationally derived from trips.driver_id.
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        comment:
+          type: string
+          nullable: true
+          example: "Driver arrived quickly and was very polite. Smooth ride!"
+        created_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+
+    VehicleEntity:
+      type: object
+      required:
+        - id
+        - driver_id
+        - license_plate
+        - make
+        - model
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        driver_id:
+          $ref: '#/components/schemas/UUID'
+        license_plate:
+          type: string
+          example: LAG-123AA
+        make:
+          type: string
+          example: Toyota
+        model:
+          type: string
+          example: Corolla
+        color:
+          type: string
+          nullable: true
+          example: Silver
+        status:
+          $ref: '#/components/schemas/VehicleStatus'
+        approved_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+          nullable: true
+        created_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+        updated_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+
+    LocationSampleEntity:
+      type: object
+      required:
+        - id
+        - trip_id
+        - latitude
+        - longitude
+        - recorded_at
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        trip_id:
+          $ref: '#/components/schemas/UUID'
+        latitude:
+          type: number
+          example: 6.551200
+        longitude:
+          type: number
+          example: 3.365400
+        accuracy_meters:
+          type: number
+          nullable: true
+          example: 5.50
+        recorded_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+        created_at:
+          $ref: '#/components/schemas/DateTimeUTC'
+
+    PaginationMetadata:
+      type: object
+      required:
+        - limit
+        - has_more
+      properties:
+        limit:
+          type: integer
+          example: 20
+        has_more:
+          type: boolean
+          example: false
+        next_cursor:
+          type: string
+          nullable: true
+          example: "eyJjcmVhdGVkX2F0IjoiMjAyNi0xMC0yNlQxMjowMDowMFoiLCJpZCI6IjAxOGQzZi4uLiJ9"
+        total_count:
+          type: integer
+          nullable: true
+          example: 1
+
+    TripSingleResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/TripEntity'
+
+    TripDetailResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/TripDetailAggregate'
+
+    TripListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripEntity'
+        pagination:
+          $ref: '#/components/schemas/PaginationMetadata'
+
+    VehicleListResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleEntity'
+
+    TripCompleteResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          required:
+            - trip
+            - payment
+          properties:
+            trip:
+              $ref: '#/components/schemas/TripEntity'
+            payment:
+              $ref: '#/components/schemas/PaymentEntity'
+
+    PaymentSingleResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/PaymentEntity'
+
+    ReviewSingleResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ReviewEntity'
+
+    LocationSampleResponse:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/LocationSampleEntity'
+
+    ErrorDetail:
+      type: object
+      required:
+        - reason
+      properties:
+        field:
+          type: string
+          example: passenger_id
+        reason:
+          type: string
+          example: Passenger already has an active trip in progress.
+
+    ErrorEnvelope:
+      type: object
+      required:
+        - code
+        - message
+        - status
+        - timestamp
+      properties:
+        code:
+          type: string
+          example: ACTIVE_TRIP_CONFLICT
+        message:
+          type: string
+          example: Passenger already has an active trip in progress.
+        status:
+          type: integer
+          example: 409
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        timestamp:
+          $ref: '#/components/schemas/DateTimeUTC'
+        request_id:
+          type: string
+          example: req_018d3f627b1a
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorEnvelope'
+
+  responses:
+    ValidationError:
+      description: Request body or parameters failed validation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation_error:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Invalid request parameters or coordinate out of bounds.
+                  status: 400
+                  details:
+                    - field: pickup_latitude
+                      reason: Must be between -90.0 and 90.0
+                  timestamp: "2026-10-26T12:00:00.000Z"
+                  request_id: req_val_01
+
+    UnauthenticatedError:
+      description: Authentication token is missing, expired, or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unauth_error:
+              value:
+                error:
+                  code: UNAUTHENTICATED
+                  message: Bearer token is missing or invalid.
+                  status: 401
+                  details: []
+                  timestamp: "2026-10-26T12:00:00.000Z"
+                  request_id: req_auth_01
+
+    ForbiddenError:
+      description: Caller lacks authorization to perform this action.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            forbidden_error:
+              value:
+                error:
+                  code: FORBIDDEN
+                  message: Caller is not authorized for this action.
+                  status: 403
+                  details: []
+                  timestamp: "2026-10-26T12:00:00.000Z"
+                  request_id: req_forb_01
+
+    NotFoundError:
+      description: Resource not found or hidden by object-level authorization masking.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            not_found_error:
+              value:
+                error:
+                  code: RESOURCE_NOT_FOUND
+                  message: Target resource was not found.
+                  status: 404
+                  details: []
+                  timestamp: "2026-10-26T12:00:00.000Z"
+                  request_id: req_nf_01
+
+    ConflictError:
+      description: Invariant or state transition conflict.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            conflict_error:
+              value:
+                error:
+                  code: INVALID_STATE_TRANSITION
+                  message: Current state does not permit the requested transition.
+                  status: 409
+                  details: []
+                  timestamp: "2026-10-26T12:00:00.000Z"
+                  request_id: req_conf_01
