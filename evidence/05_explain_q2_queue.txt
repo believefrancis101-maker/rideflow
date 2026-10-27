@@ -1,0 +1,14 @@
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.14..8.16 rows=1 width=160) (actual time=0.012..0.015 rows=10 loops=1)
+   Output: id, passenger_id, pickup_address, dropoff_address, fare_minor, currency, payment_method, created_at
+   Buffers: shared hit=2
+   ->  Index Scan using trips_requested_queue_idx on public.trips  (cost=0.14..8.16 rows=1 width=160) (actual time=0.012..0.013 rows=10 loops=1)
+         Output: id, passenger_id, pickup_address, dropoff_address, fare_minor, currency, payment_method, created_at
+         Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=325
+ Planning Time: 3.302 ms
+ Execution Time: 0.055 ms
+(10 rows)
+

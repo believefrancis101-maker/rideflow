@@ -1,0 +1,54 @@
+                                                                                                                                                                                                            QUERY PLAN                                                                                                                                                                                                            
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=0.89..38.51 rows=1 width=332) (actual time=0.101..0.104 rows=1 loops=1)
+   Output: t.id, t.status, t.pickup_address, t.dropoff_address, t.fare_minor, t.currency, u_p.full_name, u_d.full_name, v.make, v.model, v.license_plate, trip_location_samples.latitude, trip_location_samples.longitude, trip_location_samples.recorded_at
+   Buffers: shared hit=14
+   ->  Nested Loop Left Join  (cost=0.74..32.99 rows=1 width=296) (actual time=0.089..0.092 rows=1 loops=1)
+         Output: t.id, t.status, t.pickup_address, t.dropoff_address, t.fare_minor, t.currency, u_p.full_name, u_d.full_name, v.make, v.model, v.license_plate
+         Inner Unique: true
+         Buffers: shared hit=12
+         ->  Nested Loop  (cost=0.59..24.78 rows=1 width=216) (actual time=0.076..0.078 rows=1 loops=1)
+               Output: t.id, t.status, t.pickup_address, t.dropoff_address, t.fare_minor, t.currency, t.vehicle_id, u_p.full_name, u_d.full_name
+               Inner Unique: true
+               Buffers: shared hit=10
+               ->  Nested Loop Left Join  (cost=0.44..16.56 rows=1 width=200) (actual time=0.067..0.069 rows=1 loops=1)
+                     Output: t.id, t.status, t.pickup_address, t.dropoff_address, t.fare_minor, t.currency, t.passenger_id, t.vehicle_id, u_d.full_name
+                     Buffers: shared hit=8
+                     ->  Index Scan using trips_id_passenger_id_unique on public.trips t  (cost=0.14..8.16 rows=1 width=184) (actual time=0.028..0.029 rows=1 loops=1)
+                           Output: t.id, t.passenger_id, t.driver_id, t.vehicle_id, t.status, t.pickup_latitude, t.pickup_longitude, t.dropoff_latitude, t.dropoff_longitude, t.pickup_address, t.dropoff_address, t.fare_minor, t.currency, t.payment_method, t.requested_at, t.accepted_at, t.driver_arriving_at, t.started_at, t.completed_at, t.cancelled_at, t.cancellation_reason, t.expired_at, t.created_at, t.updated_at
+                           Index Cond: (t.id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09102'::uuid)
+                           Buffers: shared hit=4
+                     ->  Nested Loop Left Join  (cost=0.30..8.39 rows=1 width=48) (actual time=0.036..0.037 rows=1 loops=1)
+                           Output: dp.user_id, u_d.full_name
+                           Inner Unique: true
+                           Buffers: shared hit=4
+                           ->  Index Only Scan using driver_profiles_pkey on public.driver_profiles dp  (cost=0.15..8.17 rows=1 width=16) (actual time=0.023..0.023 rows=1 loops=1)
+                                 Output: dp.user_id
+                                 Index Cond: (dp.user_id = t.driver_id)
+                                 Heap Fetches: 1
+                                 Buffers: shared hit=2
+                           ->  Index Scan using users_pkey on public.users u_d  (cost=0.15..0.22 rows=1 width=48) (actual time=0.010..0.010 rows=1 loops=1)
+                                 Output: u_d.id, u_d.role, u_d.status, u_d.full_name, u_d.email, u_d.phone, u_d.deleted_at, u_d.created_at, u_d.updated_at
+                                 Index Cond: (u_d.id = dp.user_id)
+                                 Buffers: shared hit=2
+               ->  Index Scan using users_pkey on public.users u_p  (cost=0.15..8.17 rows=1 width=48) (actual time=0.008..0.008 rows=1 loops=1)
+                     Output: u_p.id, u_p.role, u_p.status, u_p.full_name, u_p.email, u_p.phone, u_p.deleted_at, u_p.created_at, u_p.updated_at
+                     Index Cond: (u_p.id = t.passenger_id)
+                     Buffers: shared hit=2
+         ->  Index Scan using vehicles_pkey on public.vehicles v  (cost=0.15..8.17 rows=1 width=112) (actual time=0.013..0.013 rows=1 loops=1)
+               Output: v.id, v.driver_id, v.license_plate, v.make, v.model, v.color, v.status, v.approved_at, v.created_at, v.updated_at
+               Index Cond: (v.id = t.vehicle_id)
+               Buffers: shared hit=2
+   ->  Limit  (cost=0.15..5.50 rows=1 width=52) (actual time=0.010..0.011 rows=1 loops=1)
+         Output: trip_location_samples.latitude, trip_location_samples.longitude, trip_location_samples.recorded_at, trip_location_samples.id
+         Buffers: shared hit=2
+         ->  Index Scan using trip_location_samples_lookup_idx on public.trip_location_samples  (cost=0.15..16.20 rows=3 width=52) (actual time=0.010..0.010 rows=1 loops=1)
+               Output: trip_location_samples.latitude, trip_location_samples.longitude, trip_location_samples.recorded_at, trip_location_samples.id
+               Index Cond: (trip_location_samples.trip_id = t.id)
+               Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=549
+ Planning Time: 8.348 ms
+ Execution Time: 0.278 ms
+(50 rows)
+

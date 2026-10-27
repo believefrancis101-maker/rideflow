@@ -1,0 +1,194 @@
+-- Seed Data: 01_mvp_seed_data.sql
+-- RideFlow Task 3 - Deterministic Baseline Seed
+
+BEGIN;
+
+-- 1. Users
+INSERT INTO users (id, role, status, full_name, email, phone, created_at, updated_at) VALUES
+('018d3f62-0000-7b3e-8c42-5f69a1e09000', 'admin', 'active', 'System Administrator', 'admin@rideflow.example.com', '+2348000000000', now() - INTERVAL '30 days', now() - INTERVAL '30 days'),
+('018d3f62-1111-7b3e-8c42-5f69a1e09111', 'customer', 'active', 'Ada Lovelace', 'ada.lovelace@example.com', '+2348011111111', now() - INTERVAL '20 days', now() - INTERVAL '20 days'),
+('018d3f62-1112-7b3e-8c42-5f69a1e09112', 'customer', 'active', 'Grace Hopper', 'grace.hopper@example.com', '+2348022222222', now() - INTERVAL '20 days', now() - INTERVAL '20 days'),
+('018d3f62-1113-7b3e-8c42-5f69a1e09113', 'customer', 'active', 'Katherine Johnson', 'katherine.johnson@example.com', '+2348033333333', now() - INTERVAL '15 days', now() - INTERVAL '15 days'),
+('018d3f62-1114-7b3e-8c42-5f69a1e09114', 'customer', 'active', 'Margaret Hamilton', 'margaret.hamilton@example.com', '+2348044444444', now() - INTERVAL '15 days', now() - INTERVAL '15 days'),
+('018d3f62-2221-7b3e-8c42-5f69a1e09221', 'customer', 'active', 'Chidi Anagonye', 'chidi.anagonye@example.com', '+2348055555555', now() - INTERVAL '25 days', now() - INTERVAL '25 days'),
+('018d3f62-2222-7b3e-8c42-5f69a1e09222', 'customer', 'active', 'Tahani Al-Jamil', 'tahani.aljamil@example.com', '+2348066666666', now() - INTERVAL '25 days', now() - INTERVAL '25 days'),
+('018d3f62-2223-7b3e-8c42-5f69a1e09223', 'customer', 'active', 'Jason Mendoza', 'jason.mendoza@example.com', '+2348077777777', now() - INTERVAL '20 days', now() - INTERVAL '20 days'),
+('018d3f62-2224-7b3e-8c42-5f69a1e09224', 'customer', 'active', 'Eleanor Shellstrop', 'eleanor.shellstrop@example.com', '+2348088888888', now() - INTERVAL '20 days', now() - INTERVAL '20 days');
+
+-- 2. Driver Profiles
+INSERT INTO driver_profiles (user_id, status, approved_at, created_at, updated_at) VALUES
+('018d3f62-2221-7b3e-8c42-5f69a1e09221', 'approved', now() - INTERVAL '24 days', now() - INTERVAL '25 days', now() - INTERVAL '24 days'),
+('018d3f62-2222-7b3e-8c42-5f69a1e09222', 'approved', now() - INTERVAL '24 days', now() - INTERVAL '25 days', now() - INTERVAL '24 days'),
+('018d3f62-2223-7b3e-8c42-5f69a1e09223', 'suspended', now() - INTERVAL '18 days', now() - INTERVAL '20 days', now() - INTERVAL '5 days'),
+('018d3f62-2224-7b3e-8c42-5f69a1e09224', 'approved', now() - INTERVAL '19 days', now() - INTERVAL '20 days', now() - INTERVAL '19 days');
+
+-- 3. Vehicles
+INSERT INTO vehicles (id, driver_id, license_plate, make, model, color, status, approved_at, created_at, updated_at) VALUES
+('018d3f62-3331-7b3e-8c42-5f69a1e09331', '018d3f62-2221-7b3e-8c42-5f69a1e09221', 'LAG-101AA', 'Toyota', 'Corolla', 'Silver', 'approved', now() - INTERVAL '24 days', now() - INTERVAL '25 days', now() - INTERVAL '24 days'),
+('018d3f62-3332-7b3e-8c42-5f69a1e09332', '018d3f62-2222-7b3e-8c42-5f69a1e09222', 'LAG-202BB', 'Honda', 'Civic', 'Black', 'approved', now() - INTERVAL '24 days', now() - INTERVAL '25 days', now() - INTERVAL '24 days'),
+('018d3f62-3333-7b3e-8c42-5f69a1e09333', '018d3f62-2223-7b3e-8c42-5f69a1e09223', 'LAG-303CC', 'Hyundai', 'Elantra', 'White', 'suspended', now() - INTERVAL '18 days', now() - INTERVAL '20 days', now() - INTERVAL '5 days'),
+('018d3f62-3334-7b3e-8c42-5f69a1e09334', '018d3f62-2224-7b3e-8c42-5f69a1e09224', 'LAG-404DD', 'Mazda', '3', 'Blue', 'approved', now() - INTERVAL '19 days', now() - INTERVAL '20 days', now() - INTERVAL '19 days');
+
+-- 4. Trips
+-- Trip 1: Completed trip with payment & review (Historical)
+INSERT INTO trips (
+    id, passenger_id, driver_id, vehicle_id, status,
+    pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude,
+    pickup_address, dropoff_address, fare_minor, currency, payment_method,
+    requested_at, accepted_at, driver_arriving_at, started_at, completed_at,
+    created_at, updated_at
+) VALUES (
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09101',
+    '018d3f62-1111-7b3e-8c42-5f69a1e09111',
+    '018d3f62-2221-7b3e-8c42-5f69a1e09221',
+    '018d3f62-3331-7b3e-8c42-5f69a1e09331',
+    'completed',
+    6.524379, 3.379206, 6.601838, 3.351486,
+    'Commercial Avenue, Yaba, Lagos', 'Ikeja City Mall, Alausa, Ikeja',
+    450000, 'NGN', 'cash',
+    now() - INTERVAL '2 hours',
+    now() - INTERVAL '1 hour 55 minutes',
+    now() - INTERVAL '1 hour 50 minutes',
+    now() - INTERVAL '1 hour 45 minutes',
+    now() - INTERVAL '1 hour 15 minutes',
+    now() - INTERVAL '2 hours',
+    now() - INTERVAL '1 hour 15 minutes'
+);
+
+-- Trip 2: Active trip (in_progress) for Grace Hopper & Tahani Al-Jamil
+INSERT INTO trips (
+    id, passenger_id, driver_id, vehicle_id, status,
+    pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude,
+    pickup_address, dropoff_address, fare_minor, currency, payment_method,
+    requested_at, accepted_at, driver_arriving_at, started_at,
+    created_at, updated_at
+) VALUES (
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09102',
+    '018d3f62-1112-7b3e-8c42-5f69a1e09112',
+    '018d3f62-2222-7b3e-8c42-5f69a1e09222',
+    '018d3f62-3332-7b3e-8c42-5f69a1e09332',
+    'in_progress',
+    6.431200, 3.421500, 6.550000, 3.360000,
+    'Admiralty Way, Lekki Phase 1', 'Maryland Mall, Ikorodu Road',
+    650000, 'NGN', 'electronic',
+    now() - INTERVAL '40 minutes',
+    now() - INTERVAL '35 minutes',
+    now() - INTERVAL '30 minutes',
+    now() - INTERVAL '20 minutes',
+    now() - INTERVAL '40 minutes',
+    now() - INTERVAL '20 minutes'
+);
+
+-- Trip 3: Requested trip available for acceptance (for Q2 demonstration)
+INSERT INTO trips (
+    id, passenger_id, status,
+    pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude,
+    pickup_address, dropoff_address, fare_minor, currency, payment_method,
+    requested_at, created_at, updated_at
+) VALUES (
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09103',
+    '018d3f62-1113-7b3e-8c42-5f69a1e09113',
+    'requested',
+    6.450000, 3.400000, 6.500000, 3.380000,
+    'Broad Street, Lagos Island', 'Herbert Macaulay Way, Yaba',
+    350000, 'NGN', 'cash',
+    now() - INTERVAL '10 minutes',
+    now() - INTERVAL '10 minutes',
+    now() - INTERVAL '10 minutes'
+);
+
+-- 5. Additional synthetic requested trips for FIFO queue volumetric testing (EXPLAIN evidence)
+-- Seed 35 distinct customer users to honor trips_active_passenger_idx (at most one active trip per passenger)
+INSERT INTO users (id, role, status, full_name, email, phone, created_at, updated_at)
+SELECT
+    ('018d3f62-44' || to_char(i, 'FM00') || '-7b3e-8c42-5f69a1e09100')::uuid,
+    'customer',
+    'active',
+    'Synthetic Passenger ' || i,
+    'synth.passenger.' || i || '@example.com',
+    '+234809999' || to_char(i, 'FM0000'),
+    now() - INTERVAL '15 days',
+    now() - INTERVAL '15 days'
+FROM generate_series(1, 35) AS i;
+
+INSERT INTO trips (
+    passenger_id, status,
+    pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude,
+    pickup_address, dropoff_address, fare_minor, currency, payment_method,
+    requested_at, created_at, updated_at
+)
+SELECT
+    ('018d3f62-44' || to_char(i, 'FM00') || '-7b3e-8c42-5f69a1e09100')::uuid,
+    'requested',
+    6.500000 + (i * 0.001), 3.350000 + (i * 0.001),
+    6.600000 + (i * 0.001), 3.450000 + (i * 0.001),
+    'Origin Point ' || i, 'Destination Point ' || i,
+    300000 + (i * 10000), 'NGN', 'electronic',
+    now() - (INTERVAL '1 minute' * (50 - i)),
+    now() - (INTERVAL '1 minute' * (50 - i)),
+    now() - (INTERVAL '1 minute' * (50 - i))
+FROM generate_series(1, 35) AS i;
+
+-- 6. Location samples for Trip 1 (Completed history) and Trip 2 (Active in_progress)
+INSERT INTO trip_location_samples (trip_id, latitude, longitude, accuracy_meters, recorded_at, created_at, updated_at) VALUES
+('018d3f62-7b1a-7b3e-8c42-5f69a1e09101', 6.524400, 3.379250, 5.0, now() - INTERVAL '1 hour 45 minutes', now() - INTERVAL '1 hour 45 minutes', now() - INTERVAL '1 hour 45 minutes'),
+('018d3f62-7b1a-7b3e-8c42-5f69a1e09101', 6.545000, 3.370000, 4.2, now() - INTERVAL '1 hour 35 minutes', now() - INTERVAL '1 hour 35 minutes', now() - INTERVAL '1 hour 35 minutes'),
+('018d3f62-7b1a-7b3e-8c42-5f69a1e09101', 6.601800, 3.351500, 3.8, now() - INTERVAL '1 hour 16 minutes', now() - INTERVAL '1 hour 16 minutes', now() - INTERVAL '1 hour 16 minutes'),
+
+('018d3f62-7b1a-7b3e-8c42-5f69a1e09102', 6.431500, 3.421800, 6.0, now() - INTERVAL '20 minutes', now() - INTERVAL '20 minutes', now() - INTERVAL '20 minutes'),
+('018d3f62-7b1a-7b3e-8c42-5f69a1e09102', 6.460000, 3.400000, 5.5, now() - INTERVAL '10 minutes', now() - INTERVAL '10 minutes', now() - INTERVAL '10 minutes'),
+('018d3f62-7b1a-7b3e-8c42-5f69a1e09102', 6.500000, 3.380000, 4.0, now() - INTERVAL '2 minutes', now() - INTERVAL '2 minutes', now() - INTERVAL '2 minutes');
+
+-- 7. Payment for Trip 1 (Successful Cash Payment)
+INSERT INTO payments (
+    id, trip_id, attempt_no, method, amount_minor, currency, status, settled_at, created_at, updated_at
+) VALUES (
+    '018d3f62-5551-7b3e-8c42-5f69a1e09551',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09101',
+    1,
+    'cash',
+    450000,
+    'NGN',
+    'succeeded',
+    now() - INTERVAL '1 hour 15 minutes',
+    now() - INTERVAL '1 hour 15 minutes',
+    now() - INTERVAL '1 hour 15 minutes'
+);
+
+-- 8. Review for Trip 1
+INSERT INTO reviews (
+    id, trip_id, passenger_id, rating, comment, created_at, updated_at
+) VALUES (
+    '018d3f62-6661-7b3e-8c42-5f69a1e09661',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09101',
+    '018d3f62-1111-7b3e-8c42-5f69a1e09111',
+    5,
+    'Driver arrived quickly and was very polite. Smooth ride!',
+    now() - INTERVAL '1 hour 10 minutes',
+    now() - INTERVAL '1 hour 10 minutes'
+);
+
+-- 9. Audit Events for Trip 1 and Driver Approvals
+INSERT INTO audit_events (actor_type, actor_user_id, action, entity_type, entity_id, after_data, created_at, updated_at) VALUES
+('admin', '018d3f62-0000-7b3e-8c42-5f69a1e09000', 'driver.approve', 'driver_profiles', '018d3f62-2221-7b3e-8c42-5f69a1e09221', '{"status":"approved"}', now() - INTERVAL '24 days', now() - INTERVAL '24 days'),
+('customer', '018d3f62-1111-7b3e-8c42-5f69a1e09111', 'trip.request', 'trips', '018d3f62-7b1a-7b3e-8c42-5f69a1e09101', '{"status":"requested","fare_minor":450000,"currency":"NGN"}', now() - INTERVAL '2 hours', now() - INTERVAL '2 hours'),
+('customer', '018d3f62-2221-7b3e-8c42-5f69a1e09221', 'trip.accept', 'trips', '018d3f62-7b1a-7b3e-8c42-5f69a1e09101', '{"status":"accepted","driver_id":"018d3f62-2221-7b3e-8c42-5f69a1e09221"}', now() - INTERVAL '1 hour 55 minutes', now() - INTERVAL '1 hour 55 minutes'),
+('customer', '018d3f62-2221-7b3e-8c42-5f69a1e09221', 'trip.complete', 'trips', '018d3f62-7b1a-7b3e-8c42-5f69a1e09101', '{"status":"completed"}', now() - INTERVAL '1 hour 15 minutes', now() - INTERVAL '1 hour 15 minutes'),
+('customer', '018d3f62-1111-7b3e-8c42-5f69a1e09111', 'trip.review', 'reviews', '018d3f62-6661-7b3e-8c42-5f69a1e09661', '{"rating":5}', now() - INTERVAL '1 hour 10 minutes', now() - INTERVAL '1 hour 10 minutes');
+
+-- 10. Idempotency Key
+INSERT INTO idempotency_keys (
+    principal_user_id, operation, key, request_hash, response_status, response_body, expires_at, created_at, updated_at
+) VALUES (
+    '018d3f62-1111-7b3e-8c42-5f69a1e09111',
+    'trip.request',
+    'req-idem-key-0001',
+    'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    201,
+    '{"id":"018d3f62-7b1a-7b3e-8c42-5f69a1e09101","status":"requested"}',
+    now() + INTERVAL '24 hours',
+    now() - INTERVAL '2 hours',
+    now() - INTERVAL '2 hours'
+);
+
+COMMIT;

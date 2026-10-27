@@ -1,0 +1,277 @@
+=================================================================
+EXECUTING: database/queries/q1_request_trip.sql
+=================================================================
+BEGIN;
+BEGIN
+INSERT INTO trips (
+    id,
+    passenger_id,
+    status,
+    pickup_latitude,
+    pickup_longitude,
+    dropoff_latitude,
+    dropoff_longitude,
+    pickup_address,
+    dropoff_address,
+    fare_minor,
+    currency,
+    payment_method,
+    requested_at
+) VALUES (
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09199',
+    '018d3f62-1111-7b3e-8c42-5f69a1e09111',
+    'requested',
+    6.524379,
+    3.379206,
+    6.601838,
+    3.351486,
+    'Commercial Avenue, Yaba, Lagos',
+    'Ikeja City Mall, Alausa, Ikeja',
+    550000,
+    'NGN',
+    'cash',
+    now()
+) RETURNING id, passenger_id, status, fare_minor, currency, payment_method, requested_at;
+                  id                  |             passenger_id             |  status   | fare_minor | currency | payment_method |         requested_at          
+--------------------------------------+--------------------------------------+-----------+------------+----------+----------------+-------------------------------
+ 018d3f62-7b1a-7b3e-8c42-5f69a1e09199 | 018d3f62-1111-7b3e-8c42-5f69a1e09111 | requested |     550000 | NGN      | cash           | 2026-10-27 09:33:42.159692+00
+(1 row)
+
+INSERT 0 1
+INSERT INTO audit_events (
+    actor_type,
+    actor_user_id,
+    action,
+    entity_type,
+    entity_id,
+    after_data
+) VALUES (
+    'customer',
+    '018d3f62-1111-7b3e-8c42-5f69a1e09111',
+    'trip.request',
+    'trips',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09199',
+    jsonb_build_object('status', 'requested', 'fare_minor', 550000, 'currency', 'NGN', 'payment_method', 'cash')
+);
+INSERT 0 1
+COMMIT;
+COMMIT
+
+=================================================================
+EXECUTING: database/queries/q2_accept_trip.sql
+=================================================================
+SELECT
+    id,
+    passenger_id,
+    pickup_address,
+    dropoff_address,
+    fare_minor,
+    currency,
+    payment_method,
+    created_at AS queue_arrival_time
+FROM trips
+WHERE status = 'requested'
+ORDER BY created_at ASC
+LIMIT 10;
+                  id                  |             passenger_id             | pickup_address  |   dropoff_address    | fare_minor | currency | payment_method |      queue_arrival_time       
+--------------------------------------+--------------------------------------+-----------------+----------------------+------------+----------+----------------+-------------------------------
+ 6b62fdca-6858-4bd0-8940-e0bca4f98da7 | 018d3f62-4401-7b3e-8c42-5f69a1e09100 | Origin Point 1  | Destination Point 1  |     310000 | NGN      | electronic     | 2026-10-27 08:44:41.981373+00
+ 3826a0df-eb0b-460a-aa56-2a6b07dc1945 | 018d3f62-4402-7b3e-8c42-5f69a1e09100 | Origin Point 2  | Destination Point 2  |     320000 | NGN      | electronic     | 2026-10-27 08:45:41.981373+00
+ 5c346879-a447-4f33-ad5e-63682612273e | 018d3f62-4403-7b3e-8c42-5f69a1e09100 | Origin Point 3  | Destination Point 3  |     330000 | NGN      | electronic     | 2026-10-27 08:46:41.981373+00
+ ca265f4f-69ff-4d28-8af9-46355aa0c997 | 018d3f62-4404-7b3e-8c42-5f69a1e09100 | Origin Point 4  | Destination Point 4  |     340000 | NGN      | electronic     | 2026-10-27 08:47:41.981373+00
+ 16863c1c-0fbc-4ad5-abd4-18a433df2f4e | 018d3f62-4405-7b3e-8c42-5f69a1e09100 | Origin Point 5  | Destination Point 5  |     350000 | NGN      | electronic     | 2026-10-27 08:48:41.981373+00
+ 26ec8118-1810-4dd3-b354-3dad18627566 | 018d3f62-4406-7b3e-8c42-5f69a1e09100 | Origin Point 6  | Destination Point 6  |     360000 | NGN      | electronic     | 2026-10-27 08:49:41.981373+00
+ 4dc093b0-1a11-4b87-a3d1-481cda7482ab | 018d3f62-4407-7b3e-8c42-5f69a1e09100 | Origin Point 7  | Destination Point 7  |     370000 | NGN      | electronic     | 2026-10-27 08:50:41.981373+00
+ a18f360b-ec0f-45a9-a38c-ebdd2efc1d90 | 018d3f62-4408-7b3e-8c42-5f69a1e09100 | Origin Point 8  | Destination Point 8  |     380000 | NGN      | electronic     | 2026-10-27 08:51:41.981373+00
+ c2111c90-ec1c-4850-a0b8-32a49fe49d4a | 018d3f62-4409-7b3e-8c42-5f69a1e09100 | Origin Point 9  | Destination Point 9  |     390000 | NGN      | electronic     | 2026-10-27 08:52:41.981373+00
+ c541407b-b12e-4309-be2d-b8b89b7573cf | 018d3f62-4410-7b3e-8c42-5f69a1e09100 | Origin Point 10 | Destination Point 10 |     400000 | NGN      | electronic     | 2026-10-27 08:53:41.981373+00
+(10 rows)
+
+BEGIN;
+BEGIN
+UPDATE trips
+SET status = 'accepted',
+    driver_id = '018d3f62-2221-7b3e-8c42-5f69a1e09221',
+    vehicle_id = '018d3f62-3331-7b3e-8c42-5f69a1e09331',
+    accepted_at = now()
+WHERE id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09103'
+  AND status = 'requested'
+RETURNING id, passenger_id, driver_id, vehicle_id, status, accepted_at;
+                  id                  |             passenger_id             |              driver_id               |              vehicle_id              |  status  |          accepted_at          
+--------------------------------------+--------------------------------------+--------------------------------------+--------------------------------------+----------+-------------------------------
+ 018d3f62-7b1a-7b3e-8c42-5f69a1e09103 | 018d3f62-1113-7b3e-8c42-5f69a1e09113 | 018d3f62-2221-7b3e-8c42-5f69a1e09221 | 018d3f62-3331-7b3e-8c42-5f69a1e09331 | accepted | 2026-10-27 09:33:42.317808+00
+(1 row)
+
+UPDATE 1
+INSERT INTO audit_events (
+    actor_type,
+    actor_user_id,
+    action,
+    entity_type,
+    entity_id,
+    after_data
+) VALUES (
+    'customer',
+    '018d3f62-2221-7b3e-8c42-5f69a1e09221',
+    'trip.accept',
+    'trips',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09103',
+    jsonb_build_object(
+        'status', 'accepted',
+        'driver_id', '018d3f62-2221-7b3e-8c42-5f69a1e09221',
+        'vehicle_id', '018d3f62-3331-7b3e-8c42-5f69a1e09331'
+    )
+);
+INSERT 0 1
+COMMIT;
+COMMIT
+
+=================================================================
+EXECUTING: database/queries/q3_trip_progress.sql
+=================================================================
+SELECT
+    t.id AS trip_id,
+    t.status AS trip_status,
+    t.pickup_address,
+    t.dropoff_address,
+    t.fare_minor,
+    t.currency,
+    t.payment_method,
+    t.requested_at,
+    t.accepted_at,
+    t.started_at,
+    u_p.full_name AS passenger_name,
+    u_d.full_name AS driver_name,
+    v.make AS vehicle_make,
+    v.model AS vehicle_model,
+    v.license_plate AS vehicle_plate,
+    loc.latitude AS latest_latitude,
+    loc.longitude AS latest_longitude,
+    loc.accuracy_meters AS latest_accuracy,
+    loc.recorded_at AS latest_telemetry_time
+FROM trips t
+JOIN users u_p ON u_p.id = t.passenger_id
+LEFT JOIN driver_profiles dp ON dp.user_id = t.driver_id
+LEFT JOIN users u_d ON u_d.id = dp.user_id
+LEFT JOIN vehicles v ON v.id = t.vehicle_id
+LEFT JOIN LATERAL (
+    SELECT latitude, longitude, accuracy_meters, recorded_at
+    FROM trip_location_samples
+    WHERE trip_id = t.id
+    ORDER BY recorded_at DESC, id DESC
+    LIMIT 1
+) loc ON true
+WHERE t.id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09102';
+               trip_id                | trip_status |        pickup_address        |       dropoff_address       | fare_minor | currency | payment_method |         requested_at          |          accepted_at          |          started_at           | passenger_name |   driver_name   | vehicle_make | vehicle_model | vehicle_plate | latest_latitude | latest_longitude | latest_accuracy |     latest_telemetry_time     
+--------------------------------------+-------------+------------------------------+-----------------------------+------------+----------+----------------+-------------------------------+-------------------------------+-------------------------------+----------------+-----------------+--------------+---------------+---------------+-----------------+------------------+-----------------+-------------------------------
+ 018d3f62-7b1a-7b3e-8c42-5f69a1e09102 | in_progress | Admiralty Way, Lekki Phase 1 | Maryland Mall, Ikorodu Road |     650000 | NGN      | electronic     | 2026-10-27 08:53:41.981373+00 | 2026-10-27 08:58:41.981373+00 | 2026-10-27 09:13:41.981373+00 | Grace Hopper   | Tahani Al-Jamil | Honda        | Civic         | LAG-202BB     |        6.500000 |         3.380000 |            4.00 | 2026-10-27 09:31:41.981373+00
+(1 row)
+
+
+=================================================================
+EXECUTING: database/queries/q4_complete_trip.sql
+=================================================================
+BEGIN;
+BEGIN
+UPDATE trips
+SET status = 'completed',
+    completed_at = now()
+WHERE id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09102'
+  AND status = 'in_progress'
+RETURNING id, status, fare_minor, currency, payment_method, completed_at;
+                  id                  |  status   | fare_minor | currency | payment_method |         completed_at          
+--------------------------------------+-----------+------------+----------+----------------+-------------------------------
+ 018d3f62-7b1a-7b3e-8c42-5f69a1e09102 | completed |     650000 | NGN      | electronic     | 2026-10-27 09:33:42.625349+00
+(1 row)
+
+UPDATE 1
+INSERT INTO payments (
+    id,
+    trip_id,
+    attempt_no,
+    method,
+    amount_minor,
+    currency,
+    status,
+    provider_reference,
+    settled_at
+) VALUES (
+    '018d3f62-5552-7b3e-8c42-5f69a1e09552',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09102',
+    1,
+    'electronic',
+    650000,
+    'NGN',
+    'succeeded',
+    'ext_pay_ref_998877',
+    now()
+) RETURNING id, trip_id, attempt_no, method, amount_minor, currency, status, provider_reference, settled_at;
+                  id                  |               trip_id                | attempt_no |   method   | amount_minor | currency |  status   | provider_reference |          settled_at           
+--------------------------------------+--------------------------------------+------------+------------+--------------+----------+-----------+--------------------+-------------------------------
+ 018d3f62-5552-7b3e-8c42-5f69a1e09552 | 018d3f62-7b1a-7b3e-8c42-5f69a1e09102 |          1 | electronic |       650000 | NGN      | succeeded | ext_pay_ref_998877 | 2026-10-27 09:33:42.625349+00
+(1 row)
+
+INSERT 0 1
+INSERT INTO audit_events (
+    actor_type,
+    actor_user_id,
+    action,
+    entity_type,
+    entity_id,
+    after_data
+) VALUES (
+    'customer',
+    '018d3f62-2222-7b3e-8c42-5f69a1e09222',
+    'trip.complete',
+    'trips',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09102',
+    jsonb_build_object('status', 'completed', 'payment_status', 'succeeded')
+);
+INSERT 0 1
+COMMIT;
+COMMIT
+
+=================================================================
+EXECUTING: database/queries/q5_review_trip.sql
+=================================================================
+BEGIN;
+BEGIN
+INSERT INTO reviews (
+    id,
+    trip_id,
+    passenger_id,
+    rating,
+    comment
+) VALUES (
+    '018d3f62-6662-7b3e-8c42-5f69a1e09662',
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09102',
+    '018d3f62-1112-7b3e-8c42-5f69a1e09112',
+    5,
+    'Tahani was an exceptional driver! Seamless trip and very clean vehicle.'
+) RETURNING id, trip_id, passenger_id, rating, comment, created_at;
+                  id                  |               trip_id                |             passenger_id             | rating |                                 comment                                 |          created_at           
+--------------------------------------+--------------------------------------+--------------------------------------+--------+-------------------------------------------------------------------------+-------------------------------
+ 018d3f62-6662-7b3e-8c42-5f69a1e09662 | 018d3f62-7b1a-7b3e-8c42-5f69a1e09102 | 018d3f62-1112-7b3e-8c42-5f69a1e09112 |      5 | Tahani was an exceptional driver! Seamless trip and very clean vehicle. | 2026-10-27 09:33:42.785188+00
+(1 row)
+
+INSERT 0 1
+INSERT INTO audit_events (
+    actor_type,
+    actor_user_id,
+    action,
+    entity_type,
+    entity_id,
+    after_data
+) VALUES (
+    'customer',
+    '018d3f62-1112-7b3e-8c42-5f69a1e09112',
+    'trip.review',
+    'reviews',
+    '018d3f62-6662-7b3e-8c42-5f69a1e09662',
+    jsonb_build_object('rating', 5)
+);
+INSERT 0 1
+COMMIT;
+COMMIT
+
+

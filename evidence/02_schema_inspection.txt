@@ -1,0 +1,379 @@
+                                         version                                          
+------------------------------------------------------------------------------------------
+ PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+(1 row)
+
+                                             List of relations
+ Schema |         Name          | Type  |  Owner   | Persistence | Access method |    Size    | Description 
+--------+-----------------------+-------+----------+-------------+---------------+------------+-------------
+ public | audit_events          | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | driver_profiles       | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | idempotency_keys      | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | payments              | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | reviews               | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | trip_location_samples | table | postgres | permanent   | heap          | 0 bytes    | 
+ public | trips                 | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | users                 | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | vehicles              | table | postgres | permanent   | heap          | 8192 bytes | 
+(9 rows)
+
+                                                                   List of relations
+ Schema |                   Name                   | Type  |  Owner   |         Table         | Persistence | Access method |    Size    | Description 
+--------+------------------------------------------+-------+----------+-----------------------+-------------+---------------+------------+-------------
+ public | audit_events_actor_idx                   | index | postgres | audit_events          | permanent   | btree         | 8192 bytes | 
+ public | audit_events_entity_idx                  | index | postgres | audit_events          | permanent   | btree         | 8192 bytes | 
+ public | audit_events_pkey                        | index | postgres | audit_events          | permanent   | btree         | 8192 bytes | 
+ public | driver_profiles_pkey                     | index | postgres | driver_profiles       | permanent   | btree         | 8192 bytes | 
+ public | driver_profiles_status_idx               | index | postgres | driver_profiles       | permanent   | btree         | 8192 bytes | 
+ public | idempotency_keys_expires_idx             | index | postgres | idempotency_keys      | permanent   | btree         | 8192 bytes | 
+ public | idempotency_keys_pkey                    | index | postgres | idempotency_keys      | permanent   | btree         | 8192 bytes | 
+ public | idempotency_keys_principal_op_key_unique | index | postgres | idempotency_keys      | permanent   | btree         | 8192 bytes | 
+ public | payments_pkey                            | index | postgres | payments              | permanent   | btree         | 8192 bytes | 
+ public | payments_provider_reference_idx          | index | postgres | payments              | permanent   | btree         | 8192 bytes | 
+ public | payments_single_success_idx              | index | postgres | payments              | permanent   | btree         | 8192 bytes | 
+ public | payments_trip_attempt_unique             | index | postgres | payments              | permanent   | btree         | 8192 bytes | 
+ public | payments_trip_history_idx                | index | postgres | payments              | permanent   | btree         | 8192 bytes | 
+ public | reviews_passenger_history_idx            | index | postgres | reviews               | permanent   | btree         | 8192 bytes | 
+ public | reviews_pkey                             | index | postgres | reviews               | permanent   | btree         | 8192 bytes | 
+ public | reviews_trip_id_key                      | index | postgres | reviews               | permanent   | btree         | 8192 bytes | 
+ public | trip_location_samples_lookup_idx         | index | postgres | trip_location_samples | permanent   | btree         | 8192 bytes | 
+ public | trip_location_samples_pkey               | index | postgres | trip_location_samples | permanent   | btree         | 8192 bytes | 
+ public | trips_active_driver_idx                  | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_active_passenger_idx               | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_active_vehicle_idx                 | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_driver_history_idx                 | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_id_fare_currency_method_unique     | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_id_passenger_id_unique             | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_passenger_history_idx              | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_pkey                               | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | trips_requested_queue_idx                | index | postgres | trips                 | permanent   | btree         | 8192 bytes | 
+ public | users_email_key                          | index | postgres | users                 | permanent   | btree         | 8192 bytes | 
+ public | users_pkey                               | index | postgres | users                 | permanent   | btree         | 8192 bytes | 
+ public | vehicles_driver_id_id_unique             | index | postgres | vehicles              | permanent   | btree         | 8192 bytes | 
+ public | vehicles_driver_status_idx               | index | postgres | vehicles              | permanent   | btree         | 8192 bytes | 
+ public | vehicles_license_plate_key               | index | postgres | vehicles              | permanent   | btree         | 8192 bytes | 
+ public | vehicles_pkey                            | index | postgres | vehicles              | permanent   | btree         | 8192 bytes | 
+(33 rows)
+
+                                                          Table "public.users"
+   Column   |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id         | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ role       | text                     |           | not null | 'customer'::text  | extended |             |              | 
+ status     | text                     |           | not null | 'active'::text    | extended |             |              | 
+ full_name  | text                     |           | not null |                   | extended |             |              | 
+ email      | text                     |           | not null |                   | extended |             |              | 
+ phone      | text                     |           |          |                   | extended |             |              | 
+ deleted_at | timestamp with time zone |           |          |                   | plain    |             |              | 
+ created_at | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+Indexes:
+    "users_pkey" PRIMARY KEY, btree (id)
+    "users_email_key" UNIQUE CONSTRAINT, btree (email)
+Check constraints:
+    "users_check" CHECK (deleted_at IS NULL OR status = 'disabled'::text AND deleted_at >= created_at)
+    "users_email_check" CHECK (email = lower(email) AND char_length(email) >= 3 AND char_length(email) <= 320)
+    "users_full_name_check" CHECK (char_length(btrim(full_name)) > 0)
+    "users_phone_check" CHECK (phone IS NULL OR char_length(phone) >= 7 AND char_length(phone) <= 32)
+    "users_role_check" CHECK (role = ANY (ARRAY['customer'::text, 'admin'::text]))
+    "users_status_check" CHECK (status = ANY (ARRAY['active'::text, 'disabled'::text]))
+Referenced by:
+    TABLE "audit_events" CONSTRAINT "audit_events_actor_user_id_fkey" FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "driver_profiles" CONSTRAINT "driver_profiles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "idempotency_keys" CONSTRAINT "idempotency_keys_principal_user_id_fkey" FOREIGN KEY (principal_user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "reviews" CONSTRAINT "reviews_passenger_id_fkey" FOREIGN KEY (passenger_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "trips" CONSTRAINT "trips_passenger_id_fkey" FOREIGN KEY (passenger_id) REFERENCES users(id) ON DELETE RESTRICT
+Triggers:
+    trg_users_role_immutable BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION fn_users_role_immutable()
+    trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
+Access method: heap
+
+                                                    Table "public.driver_profiles"
+   Column    |           Type           | Collation | Nullable |     Default     | Storage  | Compression | Stats target | Description 
+-------------+--------------------------+-----------+----------+-----------------+----------+-------------+--------------+-------------
+ user_id     | uuid                     |           | not null |                 | plain    |             |              | 
+ status      | text                     |           | not null | 'pending'::text | extended |             |              | 
+ approved_at | timestamp with time zone |           |          |                 | plain    |             |              | 
+ created_at  | timestamp with time zone |           | not null | now()           | plain    |             |              | 
+ updated_at  | timestamp with time zone |           | not null | now()           | plain    |             |              | 
+Indexes:
+    "driver_profiles_pkey" PRIMARY KEY, btree (user_id)
+    "driver_profiles_status_idx" btree (status)
+Check constraints:
+    "driver_profiles_check" CHECK (status <> 'approved'::text OR approved_at IS NOT NULL)
+    "driver_profiles_check1" CHECK (approved_at IS NULL OR approved_at >= created_at)
+    "driver_profiles_status_check" CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'suspended'::text, 'rejected'::text]))
+Foreign-key constraints:
+    "driver_profiles_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT
+Referenced by:
+    TABLE "trips" CONSTRAINT "trips_driver_id_fkey" FOREIGN KEY (driver_id) REFERENCES driver_profiles(user_id) ON DELETE RESTRICT
+    TABLE "vehicles" CONSTRAINT "vehicles_driver_id_fkey" FOREIGN KEY (driver_id) REFERENCES driver_profiles(user_id) ON DELETE RESTRICT
+Triggers:
+    trg_driver_profiles_customer_role BEFORE INSERT OR UPDATE ON driver_profiles FOR EACH ROW EXECUTE FUNCTION fn_driver_profiles_customer_role()
+    trg_driver_profiles_updated_at BEFORE UPDATE ON driver_profiles FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
+Access method: heap
+
+                                                          Table "public.vehicles"
+    Column     |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+---------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id            | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ driver_id     | uuid                     |           | not null |                   | plain    |             |              | 
+ license_plate | text                     |           | not null |                   | extended |             |              | 
+ make          | text                     |           | not null |                   | extended |             |              | 
+ model         | text                     |           | not null |                   | extended |             |              | 
+ color         | text                     |           |          |                   | extended |             |              | 
+ status        | text                     |           | not null | 'pending'::text   | extended |             |              | 
+ approved_at   | timestamp with time zone |           |          |                   | plain    |             |              | 
+ created_at    | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at    | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+Indexes:
+    "vehicles_pkey" PRIMARY KEY, btree (id)
+    "vehicles_driver_id_id_unique" UNIQUE CONSTRAINT, btree (driver_id, id)
+    "vehicles_driver_status_idx" btree (driver_id, status)
+    "vehicles_license_plate_key" UNIQUE CONSTRAINT, btree (license_plate)
+Check constraints:
+    "vehicles_check" CHECK (status <> 'approved'::text OR approved_at IS NOT NULL)
+    "vehicles_check1" CHECK (approved_at IS NULL OR approved_at >= created_at)
+    "vehicles_color_check" CHECK (color IS NULL OR char_length(color) <= 40)
+    "vehicles_license_plate_check" CHECK (license_plate = upper(license_plate) AND char_length(license_plate) >= 2 AND char_length(license_plate) <= 16)
+    "vehicles_make_check" CHECK (char_length(btrim(make)) > 0)
+    "vehicles_model_check" CHECK (char_length(btrim(model)) > 0)
+    "vehicles_status_check" CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'suspended'::text]))
+Foreign-key constraints:
+    "vehicles_driver_id_fkey" FOREIGN KEY (driver_id) REFERENCES driver_profiles(user_id) ON DELETE RESTRICT
+Referenced by:
+    TABLE "trips" CONSTRAINT "trips_driver_vehicle_fkey" FOREIGN KEY (driver_id, vehicle_id) REFERENCES vehicles(driver_id, id) ON DELETE RESTRICT
+    TABLE "trips" CONSTRAINT "trips_vehicle_id_fkey" FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE RESTRICT
+Triggers:
+    trg_vehicles_updated_at BEFORE UPDATE ON vehicles FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
+Access method: heap
+
+                                                              Table "public.trips"
+       Column        |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+---------------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id                  | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ passenger_id        | uuid                     |           | not null |                   | plain    |             |              | 
+ driver_id           | uuid                     |           |          |                   | plain    |             |              | 
+ vehicle_id          | uuid                     |           |          |                   | plain    |             |              | 
+ status              | text                     |           | not null | 'requested'::text | extended |             |              | 
+ pickup_latitude     | numeric(9,6)             |           | not null |                   | main     |             |              | 
+ pickup_longitude    | numeric(9,6)             |           | not null |                   | main     |             |              | 
+ dropoff_latitude    | numeric(9,6)             |           | not null |                   | main     |             |              | 
+ dropoff_longitude   | numeric(9,6)             |           | not null |                   | main     |             |              | 
+ pickup_address      | text                     |           |          |                   | extended |             |              | 
+ dropoff_address     | text                     |           |          |                   | extended |             |              | 
+ fare_minor          | bigint                   |           | not null |                   | plain    |             |              | 
+ currency            | character varying(3)     |           | not null |                   | extended |             |              | 
+ payment_method      | text                     |           | not null |                   | extended |             |              | 
+ requested_at        | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ accepted_at         | timestamp with time zone |           |          |                   | plain    |             |              | 
+ driver_arriving_at  | timestamp with time zone |           |          |                   | plain    |             |              | 
+ started_at          | timestamp with time zone |           |          |                   | plain    |             |              | 
+ completed_at        | timestamp with time zone |           |          |                   | plain    |             |              | 
+ cancelled_at        | timestamp with time zone |           |          |                   | plain    |             |              | 
+ cancellation_reason | text                     |           |          |                   | extended |             |              | 
+ expired_at          | timestamp with time zone |           |          |                   | plain    |             |              | 
+ created_at          | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at          | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+Indexes:
+    "trips_pkey" PRIMARY KEY, btree (id)
+    "trips_active_driver_idx" UNIQUE, btree (driver_id) WHERE driver_id IS NOT NULL AND (status = ANY (ARRAY['requested'::text, 'accepted'::text, 'driver_arriving'::text, 'in_progress'::text]))
+    "trips_active_passenger_idx" UNIQUE, btree (passenger_id) WHERE status = ANY (ARRAY['requested'::text, 'accepted'::text, 'driver_arriving'::text, 'in_progress'::text])
+    "trips_active_vehicle_idx" UNIQUE, btree (vehicle_id) WHERE vehicle_id IS NOT NULL AND (status = ANY (ARRAY['requested'::text, 'accepted'::text, 'driver_arriving'::text, 'in_progress'::text]))
+    "trips_driver_history_idx" btree (driver_id, created_at DESC)
+    "trips_id_fare_currency_method_unique" UNIQUE CONSTRAINT, btree (id, fare_minor, currency, payment_method)
+    "trips_id_passenger_id_unique" UNIQUE CONSTRAINT, btree (id, passenger_id)
+    "trips_passenger_history_idx" btree (passenger_id, created_at DESC)
+    "trips_requested_queue_idx" btree (created_at) WHERE status = 'requested'::text
+Check constraints:
+    "trips_assigned_state_requirements" CHECK ((status <> ALL (ARRAY['accepted'::text, 'driver_arriving'::text, 'in_progress'::text, 'completed'::text])) OR driver_id IS NOT NULL AND accepted_at IS NOT NULL)
+    "trips_cancellation_reason_check" CHECK (cancellation_reason IS NULL OR char_length(cancellation_reason) <= 500)
+    "trips_cancellation_reason_guard" CHECK (status = 'cancelled'::text OR cancellation_reason IS NULL)
+    "trips_cancelled_requirements" CHECK (status <> 'cancelled'::text OR cancelled_at IS NOT NULL)
+    "trips_chronological_accepted" CHECK (accepted_at IS NULL OR accepted_at >= requested_at)
+    "trips_chronological_arriving" CHECK (driver_arriving_at IS NULL OR driver_arriving_at >= accepted_at)
+    "trips_chronological_cancelled" CHECK (cancelled_at IS NULL OR cancelled_at >= requested_at)
+    "trips_chronological_completed" CHECK (completed_at IS NULL OR completed_at >= started_at)
+    "trips_chronological_started" CHECK (started_at IS NULL OR started_at >= accepted_at)
+    "trips_completed_requirements" CHECK (status <> 'completed'::text OR completed_at IS NOT NULL)
+    "trips_currency_check" CHECK (currency::text ~ '^[A-Z]{3}$'::text)
+    "trips_driver_arriving_requirements" CHECK (status <> 'driver_arriving'::text OR driver_arriving_at IS NOT NULL)
+    "trips_driver_vehicle_paired" CHECK (driver_id IS NULL AND vehicle_id IS NULL OR driver_id IS NOT NULL AND vehicle_id IS NOT NULL)
+    "trips_dropoff_address_check" CHECK (dropoff_address IS NULL OR char_length(dropoff_address) <= 500)
+    "trips_dropoff_latitude_check" CHECK (dropoff_latitude >= '-90'::integer::numeric AND dropoff_latitude <= 90::numeric)
+    "trips_dropoff_longitude_check" CHECK (dropoff_longitude >= '-180'::integer::numeric AND dropoff_longitude <= 180::numeric)
+    "trips_expired_requirements" CHECK (status <> 'expired'::text OR expired_at IS NOT NULL AND driver_id IS NULL AND accepted_at IS NULL)
+    "trips_fare_minor_check" CHECK (fare_minor > 0)
+    "trips_in_progress_requirements" CHECK ((status <> ALL (ARRAY['in_progress'::text, 'completed'::text])) OR started_at IS NOT NULL)
+    "trips_passenger_differs_from_driver" CHECK (driver_id IS NULL OR passenger_id <> driver_id)
+    "trips_payment_method_check" CHECK (payment_method = ANY (ARRAY['cash'::text, 'electronic'::text]))
+    "trips_pickup_address_check" CHECK (pickup_address IS NULL OR char_length(pickup_address) <= 500)
+    "trips_pickup_latitude_check" CHECK (pickup_latitude >= '-90'::integer::numeric AND pickup_latitude <= 90::numeric)
+    "trips_pickup_longitude_check" CHECK (pickup_longitude >= '-180'::integer::numeric AND pickup_longitude <= 180::numeric)
+    "trips_requested_state_clean" CHECK (status <> 'requested'::text OR driver_id IS NULL AND accepted_at IS NULL AND driver_arriving_at IS NULL AND started_at IS NULL AND completed_at IS NULL AND cancelled_at IS NULL AND expired_at IS NULL)
+    "trips_status_check" CHECK (status = ANY (ARRAY['requested'::text, 'accepted'::text, 'driver_arriving'::text, 'in_progress'::text, 'completed'::text, 'cancelled'::text, 'expired'::text]))
+    "trips_terminal_mutually_exclusive" CHECK ((completed_at IS NULL OR cancelled_at IS NULL) AND (completed_at IS NULL OR expired_at IS NULL) AND (cancelled_at IS NULL OR expired_at IS NULL))
+Foreign-key constraints:
+    "trips_driver_id_fkey" FOREIGN KEY (driver_id) REFERENCES driver_profiles(user_id) ON DELETE RESTRICT
+    "trips_driver_vehicle_fkey" FOREIGN KEY (driver_id, vehicle_id) REFERENCES vehicles(driver_id, id) ON DELETE RESTRICT
+    "trips_passenger_id_fkey" FOREIGN KEY (passenger_id) REFERENCES users(id) ON DELETE RESTRICT
+    "trips_vehicle_id_fkey" FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE RESTRICT
+Referenced by:
+    TABLE "payments" CONSTRAINT "payments_trip_fare_snapshot_fkey" FOREIGN KEY (trip_id, amount_minor, currency, method) REFERENCES trips(id, fare_minor, currency, payment_method) ON DELETE RESTRICT
+    TABLE "payments" CONSTRAINT "payments_trip_id_fkey" FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE RESTRICT
+    TABLE "reviews" CONSTRAINT "reviews_trip_id_fkey" FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE RESTRICT
+    TABLE "reviews" CONSTRAINT "reviews_trip_passenger_fkey" FOREIGN KEY (trip_id, passenger_id) REFERENCES trips(id, passenger_id) ON DELETE RESTRICT
+    TABLE "trip_location_samples" CONSTRAINT "trip_location_samples_trip_id_fkey" FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+Triggers:
+    trg_trips_immutability BEFORE UPDATE ON trips FOR EACH ROW EXECUTE FUNCTION fn_trips_immutability()
+    trg_trips_passenger_check BEFORE INSERT ON trips FOR EACH ROW EXECUTE FUNCTION fn_trips_passenger_must_be_active_customer()
+    trg_trips_state_machine BEFORE UPDATE OF status ON trips FOR EACH ROW EXECUTE FUNCTION fn_trips_state_machine()
+    trg_trips_updated_at BEFORE UPDATE ON trips FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
+Access method: heap
+
+                                                    Table "public.trip_location_samples"
+     Column      |           Type           | Collation | Nullable |      Default      | Storage | Compression | Stats target | Description 
+-----------------+--------------------------+-----------+----------+-------------------+---------+-------------+--------------+-------------
+ id              | uuid                     |           | not null | gen_random_uuid() | plain   |             |              | 
+ trip_id         | uuid                     |           | not null |                   | plain   |             |              | 
+ latitude        | numeric(9,6)             |           | not null |                   | main    |             |              | 
+ longitude       | numeric(9,6)             |           | not null |                   | main    |             |              | 
+ accuracy_meters | numeric(7,2)             |           |          |                   | main    |             |              | 
+ recorded_at     | timestamp with time zone |           | not null |                   | plain   |             |              | 
+ created_at      | timestamp with time zone |           | not null | now()             | plain   |             |              | 
+ updated_at      | timestamp with time zone |           | not null | now()             | plain   |             |              | 
+Indexes:
+    "trip_location_samples_pkey" PRIMARY KEY, btree (id)
+    "trip_location_samples_lookup_idx" btree (trip_id, recorded_at DESC, id DESC)
+Check constraints:
+    "trip_location_samples_accuracy_meters_check" CHECK (accuracy_meters IS NULL OR accuracy_meters >= 0::numeric)
+    "trip_location_samples_latitude_check" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
+    "trip_location_samples_longitude_check" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
+Foreign-key constraints:
+    "trip_location_samples_trip_id_fkey" FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+Triggers:
+    trg_trip_location_samples_append_only BEFORE UPDATE ON trip_location_samples FOR EACH ROW EXECUTE FUNCTION fn_trip_location_samples_append_only()
+Access method: heap
+
+                                                            Table "public.payments"
+       Column       |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+--------------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id                 | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ trip_id            | uuid                     |           | not null |                   | plain    |             |              | 
+ attempt_no         | integer                  |           | not null |                   | plain    |             |              | 
+ method             | text                     |           | not null |                   | extended |             |              | 
+ amount_minor       | bigint                   |           | not null |                   | plain    |             |              | 
+ currency           | character varying(3)     |           | not null |                   | extended |             |              | 
+ status             | text                     |           | not null | 'pending'::text   | extended |             |              | 
+ provider_reference | text                     |           |          |                   | extended |             |              | 
+ failure_code       | text                     |           |          |                   | extended |             |              | 
+ settled_at         | timestamp with time zone |           |          |                   | plain    |             |              | 
+ created_at         | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at         | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+Indexes:
+    "payments_pkey" PRIMARY KEY, btree (id)
+    "payments_provider_reference_idx" UNIQUE, btree (provider_reference) WHERE provider_reference IS NOT NULL
+    "payments_single_success_idx" UNIQUE, btree (trip_id) WHERE status = 'succeeded'::text
+    "payments_trip_attempt_unique" UNIQUE CONSTRAINT, btree (trip_id, attempt_no)
+    "payments_trip_history_idx" btree (trip_id, created_at DESC)
+Check constraints:
+    "payments_amount_minor_check" CHECK (amount_minor > 0)
+    "payments_attempt_no_check" CHECK (attempt_no > 0)
+    "payments_cash_no_provider_ref" CHECK (method <> 'cash'::text OR provider_reference IS NULL)
+    "payments_currency_check" CHECK (currency::text ~ '^[A-Z]{3}$'::text)
+    "payments_method_check" CHECK (method = ANY (ARRAY['cash'::text, 'electronic'::text]))
+    "payments_settled_at_coherence" CHECK (status = 'pending'::text AND settled_at IS NULL OR (status = ANY (ARRAY['succeeded'::text, 'failed'::text])) AND settled_at IS NOT NULL)
+    "payments_status_check" CHECK (status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text]))
+Foreign-key constraints:
+    "payments_trip_fare_snapshot_fkey" FOREIGN KEY (trip_id, amount_minor, currency, method) REFERENCES trips(id, fare_minor, currency, payment_method) ON DELETE RESTRICT
+    "payments_trip_id_fkey" FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE RESTRICT
+Triggers:
+    trg_payments_transition BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION fn_payments_transition()
+    trg_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at()
+Access method: heap
+
+                                                          Table "public.reviews"
+    Column    |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+--------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id           | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ trip_id      | uuid                     |           | not null |                   | plain    |             |              | 
+ passenger_id | uuid                     |           | not null |                   | plain    |             |              | 
+ rating       | smallint                 |           | not null |                   | plain    |             |              | 
+ comment      | text                     |           |          |                   | extended |             |              | 
+ created_at   | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at   | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+Indexes:
+    "reviews_pkey" PRIMARY KEY, btree (id)
+    "reviews_passenger_history_idx" btree (passenger_id, created_at DESC)
+    "reviews_trip_id_key" UNIQUE CONSTRAINT, btree (trip_id)
+Check constraints:
+    "reviews_comment_check" CHECK (comment IS NULL OR char_length(comment) <= 2000)
+    "reviews_rating_check" CHECK (rating >= 1 AND rating <= 5)
+Foreign-key constraints:
+    "reviews_passenger_id_fkey" FOREIGN KEY (passenger_id) REFERENCES users(id) ON DELETE RESTRICT
+    "reviews_trip_id_fkey" FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE RESTRICT
+    "reviews_trip_passenger_fkey" FOREIGN KEY (trip_id, passenger_id) REFERENCES trips(id, passenger_id) ON DELETE RESTRICT
+Triggers:
+    trg_reviews_eligibility BEFORE INSERT ON reviews FOR EACH ROW EXECUTE FUNCTION fn_reviews_eligibility()
+    trg_reviews_immutability BEFORE DELETE OR UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION fn_reviews_immutability()
+Access method: heap
+
+                                                        Table "public.audit_events"
+    Column     |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+---------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id            | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ actor_type    | text                     |           | not null |                   | extended |             |              | 
+ actor_user_id | uuid                     |           |          |                   | plain    |             |              | 
+ action        | text                     |           | not null |                   | extended |             |              | 
+ entity_type   | text                     |           | not null |                   | extended |             |              | 
+ entity_id     | uuid                     |           | not null |                   | plain    |             |              | 
+ before_data   | jsonb                    |           |          |                   | extended |             |              | 
+ after_data    | jsonb                    |           |          |                   | extended |             |              | 
+ metadata      | jsonb                    |           |          |                   | extended |             |              | 
+ created_at    | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at    | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+Indexes:
+    "audit_events_pkey" PRIMARY KEY, btree (id)
+    "audit_events_actor_idx" btree (actor_user_id, created_at DESC)
+    "audit_events_entity_idx" btree (entity_type, entity_id, created_at DESC)
+Check constraints:
+    "audit_events_action_check" CHECK (char_length(action) >= 1 AND char_length(action) <= 100)
+    "audit_events_actor_coherence" CHECK (actor_type = 'system'::text AND actor_user_id IS NULL OR (actor_type = ANY (ARRAY['customer'::text, 'admin'::text])) AND actor_user_id IS NOT NULL)
+    "audit_events_actor_type_check" CHECK (actor_type = ANY (ARRAY['customer'::text, 'admin'::text, 'system'::text]))
+    "audit_events_entity_type_check" CHECK (entity_type ~ '^[a-z][a-z0-9_]{0,63}$'::text)
+Foreign-key constraints:
+    "audit_events_actor_user_id_fkey" FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE RESTRICT
+Triggers:
+    trg_audit_events_immutability BEFORE DELETE OR UPDATE ON audit_events FOR EACH ROW EXECUTE FUNCTION fn_audit_events_immutability()
+Access method: heap
+
+                                                        Table "public.idempotency_keys"
+      Column       |           Type           | Collation | Nullable |      Default      | Storage  | Compression | Stats target | Description 
+-------------------+--------------------------+-----------+----------+-------------------+----------+-------------+--------------+-------------
+ id                | uuid                     |           | not null | gen_random_uuid() | plain    |             |              | 
+ principal_user_id | uuid                     |           | not null |                   | plain    |             |              | 
+ operation         | text                     |           | not null |                   | extended |             |              | 
+ key               | text                     |           | not null |                   | extended |             |              | 
+ request_hash      | text                     |           | not null |                   | extended |             |              | 
+ response_status   | smallint                 |           | not null |                   | plain    |             |              | 
+ response_body     | jsonb                    |           | not null |                   | extended |             |              | 
+ resource_type     | text                     |           |          |                   | extended |             |              | 
+ resource_id       | uuid                     |           |          |                   | plain    |             |              | 
+ created_at        | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ updated_at        | timestamp with time zone |           | not null | now()             | plain    |             |              | 
+ expires_at        | timestamp with time zone |           | not null |                   | plain    |             |              | 
+Indexes:
+    "idempotency_keys_pkey" PRIMARY KEY, btree (id)
+    "idempotency_keys_expires_idx" btree (expires_at)
+    "idempotency_keys_principal_op_key_unique" UNIQUE CONSTRAINT, btree (principal_user_id, operation, key)
+Check constraints:
+    "idempotency_keys_check" CHECK (expires_at > created_at)
+    "idempotency_keys_key_check" CHECK (char_length(key) >= 8 AND char_length(key) <= 255)
+    "idempotency_keys_request_hash_check" CHECK (request_hash ~ '^[0-9a-f]{64}$'::text)
+    "idempotency_keys_response_status_check" CHECK (response_status >= 200 AND response_status <= 599)
+Foreign-key constraints:
+    "idempotency_keys_principal_user_id_fkey" FOREIGN KEY (principal_user_id) REFERENCES users(id) ON DELETE CASCADE
+Triggers:
+    trg_idempotency_keys_immutability BEFORE UPDATE ON idempotency_keys FOR EACH ROW EXECUTE FUNCTION fn_idempotency_keys_immutability()
+Access method: heap
+

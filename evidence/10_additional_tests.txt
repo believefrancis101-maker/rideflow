@@ -1,0 +1,137 @@
+=================================================================
+EXECUTING: database/tests/test_cross_driver_vehicle.sql
+=================================================================
+--- TEST 4: Attempting to assign Driver 1 with Vehicle 2 (owned by Driver 2) ---
+INSERT INTO trips (
+    passenger_id,
+    driver_id,
+    vehicle_id,
+    status,
+    pickup_latitude,
+    pickup_longitude,
+    dropoff_latitude,
+    dropoff_longitude,
+    fare_minor,
+    currency,
+    payment_method,
+    requested_at,
+    accepted_at,
+    driver_arriving_at,
+    started_at,
+    completed_at
+) VALUES (
+    '018d3f62-1114-7b3e-8c42-5f69a1e09114',           -- Margaret Hamilton (active customer)
+    '018d3f62-2221-7b3e-8c42-5f69a1e09221',           -- Driver 1: Chidi Anagonye
+    '018d3f62-3332-7b3e-8c42-5f69a1e09332',           -- Vehicle 2: LAG-202BB owned by Driver 2!
+    'completed',                                       -- Terminal status avoids active-trip partial unique index
+    6.450000,
+    3.400000,
+    6.550000,
+    3.360000,
+    500000,
+    'NGN',
+    'cash',
+    now() - INTERVAL '40 minutes',
+    now() - INTERVAL '35 minutes',
+    now() - INTERVAL '30 minutes',
+    now() - INTERVAL '25 minutes',
+    now() - INTERVAL '10 minutes'
+);
+ERROR:  23503: insert or update on table "trips" violates foreign key constraint "trips_driver_vehicle_fkey"
+DETAIL:  Key (driver_id, vehicle_id)=(018d3f62-2221-7b3e-8c42-5f69a1e09221, 018d3f62-3332-7b3e-8c42-5f69a1e09332) is not present in table "vehicles".
+SCHEMA NAME:  public
+TABLE NAME:  trips
+CONSTRAINT NAME:  trips_driver_vehicle_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2608
+
+=================================================================
+EXECUTING: database/tests/test_forbidden_transition.sql
+=================================================================
+--- TEST 5: Attempting forbidden state transition from completed back to in_progress ---
+UPDATE trips
+SET status = 'in_progress'
+WHERE id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09101';
+ERROR:  23514: Illegal state transition: trip in terminal status completed cannot be modified to in_progress
+CONTEXT:  PL/pgSQL function fn_trips_state_machine() line 9 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+
+=================================================================
+EXECUTING: database/tests/test_append_only_mutation.sql
+=================================================================
+--- TEST 6: Attempting to UPDATE an immutable review (reviews_immutability trigger) ---
+UPDATE reviews
+SET rating = 1, comment = 'Attempting to maliciously modify review'
+WHERE id = '018d3f62-6661-7b3e-8c42-5f69a1e09661';
+ERROR:  23514: reviews records are immutable and cannot be updated or deleted
+CONTEXT:  PL/pgSQL function fn_reviews_immutability() line 3 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+--- TEST 7: Attempting to DELETE an immutable audit_event (audit_events_immutability trigger) ---
+DELETE FROM audit_events
+WHERE id = (SELECT id FROM audit_events ORDER BY created_at LIMIT 1);
+ERROR:  23514: audit_events records are append-only and cannot be updated or deleted
+CONTEXT:  PL/pgSQL function fn_audit_events_immutability() line 3 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+
+=================================================================
+EXECUTING: database/tests/test_payment_failure_non_undo.sql
+=================================================================
+--- TEST 8: Electronic payment failure does NOT undo trip completion (BR14) ---
+BEGIN;
+BEGIN
+INSERT INTO payments (
+    trip_id,
+    attempt_no,
+    method,
+    amount_minor,
+    currency,
+    status,
+    failure_code,
+    settled_at
+) VALUES (
+    '018d3f62-7b1a-7b3e-8c42-5f69a1e09102',
+    2,
+    'electronic',
+    650000,
+    'NGN',
+    'failed',
+    'PROVIDER_TIMEOUT',
+    now()
+) RETURNING id, trip_id, attempt_no, status, failure_code, settled_at;
+                  id                  |               trip_id                | attempt_no | status |   failure_code   |          settled_at           
+--------------------------------------+--------------------------------------+------------+--------+------------------+-------------------------------
+ ab7e014f-a252-4484-bba4-93e9012176b1 | 018d3f62-7b1a-7b3e-8c42-5f69a1e09102 |          2 | failed | PROVIDER_TIMEOUT | 2026-10-27 09:33:44.134505+00
+(1 row)
+
+INSERT 0 1
+SELECT id, status, completed_at
+FROM trips
+WHERE id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09102';
+                  id                  |  status   |         completed_at          
+--------------------------------------+-----------+-------------------------------
+ 018d3f62-7b1a-7b3e-8c42-5f69a1e09102 | completed | 2026-10-27 09:33:42.625349+00
+(1 row)
+
+ROLLBACK;
+ROLLBACK
+
+=================================================================
+EXECUTING: database/tests/test_telemetry_lifecycle.sql
+=================================================================
+--- TEST 9: Telemetry append-only - UPDATE blocked (DD-4) ---
+UPDATE trip_location_samples
+SET latitude = 0.0
+WHERE id = (SELECT id FROM trip_location_samples WHERE trip_id = '018d3f62-7b1a-7b3e-8c42-5f69a1e09101' LIMIT 1);
+--- TEST 10: Telemetry cascade delete verified (approved retention policy) ---
+SELECT constraint_name, delete_rule
+FROM information_schema.referential_constraints
+WHERE constraint_name = 'trip_location_samples_trip_id_fkey';
+ERROR:  23514: trip_location_samples records are append-only and cannot be updated
+CONTEXT:  PL/pgSQL function fn_trip_location_samples_append_only() line 3 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+          constraint_name           | delete_rule 
+------------------------------------+-------------
+ trip_location_samples_trip_id_fkey | CASCADE
+(1 row)
+
+
+

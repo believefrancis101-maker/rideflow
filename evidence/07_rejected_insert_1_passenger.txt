@@ -1,0 +1,30 @@
+--- TEST 1: Attempting to insert a 2nd active trip for Synthetic Passenger 1 ---
+INSERT INTO trips (
+    passenger_id,
+    status,
+    pickup_latitude,
+    pickup_longitude,
+    dropoff_latitude,
+    dropoff_longitude,
+    fare_minor,
+    currency,
+    payment_method,
+    requested_at
+) VALUES (
+    '018d3f62-4401-7b3e-8c42-5f69a1e09100',   -- Synthetic Passenger 1, already has active requested trip
+    'requested',
+    6.450000,
+    3.400000,
+    6.550000,
+    3.360000,
+    400000,
+    'NGN',
+    'cash',
+    now()
+);
+ERROR:  23505: duplicate key value violates unique constraint "trips_active_passenger_idx"
+DETAIL:  Key (passenger_id)=(018d3f62-4401-7b3e-8c42-5f69a1e09100) already exists.
+SCHEMA NAME:  public
+TABLE NAME:  trips
+CONSTRAINT NAME:  trips_active_passenger_idx
+LOCATION:  _bt_check_unique, nbtinsert.c:666
